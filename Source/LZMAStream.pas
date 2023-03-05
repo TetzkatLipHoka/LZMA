@@ -45,7 +45,7 @@ type
     constructor Create( const Stream: TStream ); reintroduce;
     procedure AfterConstruction; override;
     procedure BeforeDestruction; override;
-    function Read( Buffer: TBytes; {$IF CompilerVersion >= 22}Offset,{$IFEND} Count: Longint ): Longint; {$IF CompilerVersion >= 22}override;{$ELSE}reintroduce;{$IFEND}
+    function Read( Buffer: TBytes; Count: Longint ): Longint; reintroduce;
 //    function Read( var Buffer; Count: Longint ): Longint; override;
     function Write( const Buffer; Count: Longint ): Longint; override;
     function Decompress( OutStream: TStream ) : Longint;
@@ -264,7 +264,7 @@ begin
   inherited;
 end;
 
-function TLZMADecoderStream.Read( Buffer: TBytes; {$IF CompilerVersion >= 22}Offset,{$IFEND} Count: Longint ): Longint;
+function TLZMADecoderStream.Read( Buffer: TBytes; Count: Longint ): Longint;
 //function TLZMADecoderStream.Read( var Buffer; Count: Longint ): Longint;
 var
   Status: ELzmaStatus;
