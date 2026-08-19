@@ -8,6 +8,7 @@ interface
 
 uses
   {$IF CompilerVersion < 22}Types,{$IFEND}
+  Windows, // SDK 26.02 sync: CpuArch.obj references GetVersion
   LzmaTypes;
 
 {$Z4}
@@ -179,6 +180,16 @@ function GetMatchesSpecN_2(const lenLimit : PByte; pos : NativeInt; const cur : 
 
 implementation
 
+// SDK 26.02 sync: LzFind.c uses the SSE4.1/AVX2 match finders with CPU
+// detection from CpuArch.c - that object is linked here as well. On
+// Win64/COFF, CpuArch.o needs the dllimport slot
+// __imp_IsProcessorFeaturePresent (see Threads.pas for the pattern).
+{$ifNdef Win32}
+function IsProcessorFeaturePresent_(ProcessorFeature: Cardinal): LongBool; stdcall; external 'kernel32.dll' name 'IsProcessorFeaturePresent';
+var
+  __imp_IsProcessorFeaturePresent: Pointer = @IsProcessorFeaturePresent_;
+{$endif}
+
 {$ifdef Win32}
   {$L Win32\LzFind.obj}
 {$else}
@@ -189,6 +200,12 @@ implementation
   {$L Win32\LzFindOpt.obj}
 {$else}
   {$L Win64\LzFindOpt.o}
+{$endif}
+
+{$ifdef Win32}
+  {$L Win32\CpuArch.obj}
+{$else}
+  {$L Win64\CpuArch.o}
 {$endif}
 
 end.

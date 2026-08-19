@@ -25,12 +25,15 @@ type
     fb: Integer;            (* 5 <= fb <= 273, default = 32 *)
     btMode: Integer;        (* 0 - hashChain Mode, 1 - binTree mode - normal, default = 1 *)
     numHashBytes: Integer;  (* 2, 3 or 4, default = 4 *)
+    numHashOutBits: Cardinal; (* new in SDK 26.02; default = 0 *)
     mc: Cardinal;             (* 1 <= mc <= (1 << 30), default = 32 *)
     writeEndMark: Cardinal; (* 0 - do not write EOPM, 1 - write EOPM, default = 0 *)
     numThreads: Integer;    (* 1 or 2, default = 2 *)
+    affinityGroup: Integer; (* new in SDK 26.02; processor groups, default = -1 *)
     reduceSize : UInt64; (* estimated size of data that will be compressed. default = (UInt64)(Int64)-1.
                           Encoder uses this value to reduce dictionary size *)
     affinity : UInt64;
+    affinityInGroup : UInt64; (* new in SDK 26.02 *)
   end;
 
 {$IFDEF UNDERSCORE}
@@ -133,6 +136,20 @@ function LzmaEnc_PrepareForLzma2(pp : TCLzmaEncHandle; inStream : PISeqInStream;
 function _LzmaEnc_MemPrepare(pp : TCLzmaEncHandle; const src : PByte; srcLen : NativeInt; keepWindowSize : Cardinal; alloc : PISzAlloc; allocBig : PISzAlloc) : Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaEnc_MemPrepare'{$IFEND};
 {$ELSE}
 function LzmaEnc_MemPrepare(pp : TCLzmaEncHandle; const src : PByte; srcLen : NativeInt; keepWindowSize : Cardinal; alloc : PISzAlloc; allocBig : PISzAlloc) : Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaEnc_MemPrepare'{$IFEND};
+{$ENDIF}
+
+// Added with the SDK 26.02 sync:
+{$IFDEF UNDERSCORE}
+function _LzmaEnc_IsWriteEndMark(p: TCLzmaEncHandle): Cardinal; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaEnc_IsWriteEndMark'{$IFEND};
+{$ELSE}
+function LzmaEnc_IsWriteEndMark(p: TCLzmaEncHandle): Cardinal; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaEnc_IsWriteEndMark'{$IFEND};
+{$ENDIF}
+
+// LzmaEncode - one-call interface (compresses a complete buffer in a single call)
+{$IFDEF UNDERSCORE}
+function _LzmaEncode(dest: PByte; var destLen: NativeInt; const src: PByte; srcLen: NativeInt; const props: TCLzmaEncProps; propsEncoded: PByte; var propsSize: NativeInt; writeEndMark: Integer; progress: PICompressProgress; alloc: PISzAlloc; allocBig: PISzAlloc): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaEncode'{$IFEND};
+{$ELSE}
+function LzmaEncode(dest: PByte; var destLen: NativeInt; const src: PByte; srcLen: NativeInt; const props: TCLzmaEncProps; propsEncoded: PByte; var propsSize: NativeInt; writeEndMark: Integer; progress: PICompressProgress; alloc: PISzAlloc; allocBig: PISzAlloc): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaEncode'{$IFEND};
 {$ENDIF}
 
 implementation

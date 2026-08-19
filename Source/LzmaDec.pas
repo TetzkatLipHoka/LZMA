@@ -24,8 +24,10 @@ type
   TCLzmaProb = Word;
   {$endif}
 
+  // SDK 26.02 (layout since ~SDK 19.00): lc/lp/pb are Bytes, no longer Cardinal!
+  // The old 16-byte layout shifted every CLzmaDec field by 8 bytes (finding LZMA1).
   TCLzmaProps = record
-    lc, lp, pb: Cardinal;
+    lc, lp, pb, _pad_: Byte;
     dicSize: Cardinal;
   end;
 
@@ -42,21 +44,24 @@ type
     LZMA_STATUS_MAYBE_FINISHED_WITHOUT_MARK  { there is probability that stream was finished without end mark }
   );
 
+  // Field order exactly as CLzmaDec in LzmaDec.h (SDK 26.02) - "Don't change
+  // this structure. ASM code can use it." New vs. the old translation:
+  // probs_1664, dicBufSize BEFORE dicPos, buf after dicPos, reps BEFORE state,
+  // needFlush/needInitState removed.
   TCLzmaDec = record
-    prob: TCLzmaProps;
-    prop: PCLzmaProb;
+    prop: TCLzmaProps;
+    probs: PCLzmaProb;
+    probs_1664: PCLzmaProb;
     dic: PByte;
+    dicBufSize: NativeUInt;
+    dicPos: NativeUInt;
     buf: PByte;
     range, code: Cardinal;
-    dicPos: NativeInt;
-    dicBufSize: NativeInt;
     processedPos: Cardinal;
     checkDicSize: Cardinal;
-    state: Cardinal;
     reps: array[0..3] of Cardinal;
+    state: Cardinal;
     remainLen: Cardinal;
-    needFlush: Integer;
-    needInitState: Integer;
     numProbs: Cardinal;
     tempBufSize: Cardinal;
     tempBuf: array[0..LZMA_REQUIRED_INPUT_MAX - 1] of Byte;
@@ -108,6 +113,21 @@ function LzmaDec_DecodeToDic(var p : TCLzmaDec; dicLimit : NativeInt; const src 
 procedure _LzmaDec_InitDicAndState(var P : TCLzmaDec; initDic : Boolean; initState : Boolean); cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaDec_InitDicAndState'{$IFEND};
 {$ELSE}
 procedure LzmaDec_InitDicAndState(var P : TCLzmaDec; initDic : Boolean; initState : Boolean); cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaDec_InitDicAndState'{$IFEND};
+{$ENDIF}
+
+// Added with the SDK 26.02 sync:
+// LzmaProps_Decode - decodes the 5 property bytes of an LZMA stream
+{$IFDEF UNDERSCORE}
+function _LzmaProps_Decode(var p: TCLzmaProps; const data: PByte; size: Cardinal): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaProps_Decode'{$IFEND};
+{$ELSE}
+function LzmaProps_Decode(var p: TCLzmaProps; const data: PByte; size: Cardinal): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaProps_Decode'{$IFEND};
+{$ENDIF}
+
+// LzmaDecode - one-call interface (decodes a complete buffer in a single call)
+{$IFDEF UNDERSCORE}
+function _LzmaDecode(dest: PByte; var destLen: NativeInt; const src: PByte; var srcLen: NativeInt; const propData: PByte; propSize: Cardinal; finishMode: ELzmaFinishMode; var status: ELzmaStatus; var alloc: TISzAlloc): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaDecode'{$IFEND};
+{$ELSE}
+function LzmaDecode(dest: PByte; var destLen: NativeInt; const src: PByte; var srcLen: NativeInt; const propData: PByte; propSize: Cardinal; finishMode: ELzmaFinishMode; var status: ELzmaStatus; var alloc: TISzAlloc): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LzmaDecode'{$IFEND};
 {$ENDIF}
 
 implementation

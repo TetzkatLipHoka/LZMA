@@ -160,6 +160,17 @@ function MtProgressThunk_CreateVTable(var p : TCMtProgressThunk) : Integer; cdec
 
 implementation
 
+// SDK 26.02 sync, Win64/COFF: dllimport slots (see Threads.pas for the pattern).
+{$ifNdef Win32}
+procedure DeleteCriticalSection_(var lpCriticalSection: TRTLCriticalSection); stdcall; external 'kernel32.dll' name 'DeleteCriticalSection';
+procedure EnterCriticalSection_(var lpCriticalSection: TRTLCriticalSection); stdcall; external 'kernel32.dll' name 'EnterCriticalSection';
+procedure LeaveCriticalSection_(var lpCriticalSection: TRTLCriticalSection); stdcall; external 'kernel32.dll' name 'LeaveCriticalSection';
+var
+  __imp_DeleteCriticalSection: Pointer = @DeleteCriticalSection_;
+  __imp_EnterCriticalSection: Pointer = @EnterCriticalSection_;
+  __imp_LeaveCriticalSection: Pointer = @LeaveCriticalSection_;
+{$endif}
+
 {$ifdef Win32}
   {$L Win32\MtCoder.obj}
 {$else}

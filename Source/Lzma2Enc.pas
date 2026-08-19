@@ -18,8 +18,9 @@ type
     lzmaProps : TCLzmaEncProps;
     blockSize : UInt64;
     numBlockThreads_Reduced : Integer;
-    numBlockThreads : Integer;
+    numBlockThreads : Integer; // C: numBlockThreads_Max
     numTotalThreads : Integer;
+    numThreadGroups : Cardinal; // new in SDK 26.02; 0 = no processor groups
   end;
 
 {$IFDEF UNDERSCORE}

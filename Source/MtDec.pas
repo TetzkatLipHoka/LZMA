@@ -55,6 +55,37 @@ procedure MtProgress_SetError(var p : TCMtProgress; res: Integer); cdecl; extern
 
 implementation
 
+// SDK 26.02 sync, Win64/COFF: dllimport slots (see Threads.pas for the pattern).
+{$ifNdef Win32}
+procedure DeleteCriticalSection_(var lpCriticalSection: TRTLCriticalSection); stdcall; external 'kernel32.dll' name 'DeleteCriticalSection';
+procedure EnterCriticalSection_(var lpCriticalSection: TRTLCriticalSection); stdcall; external 'kernel32.dll' name 'EnterCriticalSection';
+procedure LeaveCriticalSection_(var lpCriticalSection: TRTLCriticalSection); stdcall; external 'kernel32.dll' name 'LeaveCriticalSection';
+var
+  __imp_DeleteCriticalSection: Pointer = @DeleteCriticalSection_;
+  __imp_EnterCriticalSection: Pointer = @EnterCriticalSection_;
+  __imp_LeaveCriticalSection: Pointer = @LeaveCriticalSection_;
+{$endif}
+
+{$ifdef Win32}
+// SDK 26.02 sync: clang-based bcc32c emits __chkstk_noalloc (stack probe
+// WITHOUT adjusting esp; eax = requested size) instead of the classic _chkstk.
+procedure __chkstk_noalloc;
+asm
+  push ecx
+  push eax
+  mov ecx, esp
+@@probe:
+  sub ecx, $1000        // one page down
+  sub eax, $1000
+  jbe @@done            // requested size covered
+  mov byte ptr [ecx], 0 // touch the page (guard page commit)
+  jmp @@probe
+@@done:
+  pop eax
+  pop ecx
+end;
+{$endif}
+
 function ___alloca_helper(size: NativeInt): Pointer; cdecl;
 begin
   Result := malloc(size);

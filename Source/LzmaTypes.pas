@@ -97,6 +97,13 @@ procedure _memmove; external 'msvcrt.dll' name {_PU + }'memmove';
 procedure memmove; external 'msvcrt.dll' name _PU + 'memmove';
 {$ENDIF}
 
+// SDK 26.02: Threads.c/LzFind.c/LzmaEnc.c reference memset
+{$IFNDEF Win64}
+procedure _memset; external 'msvcrt.dll' name {_PU + }'memset';
+{$ELSE}
+procedure memset; external 'msvcrt.dll' name _PU + 'memset';
+{$ENDIF}
+
 //{$IFDEF UNDERSCORE}
 //function _malloc(size: NativeInt): Pointer; cdecl; external 'msvcrt.dll' name {_PU + }'malloc';
 //{$ELSE}
@@ -109,6 +116,13 @@ procedure fxit(const Status: Integer); cdecl; external 'msvcrt.dll' name {_PU + 
 procedure _exit(const Status: Integer); cdecl; external 'msvcrt.dll' name {_PU + }'_exit';
 {$ENDIF}
 
+// SDK 26.02: MtCoder.c/MtDec.c read their input via SeqInStream_ReadMax (7zStream.c)
+{$IFDEF UNDERSCORE}
+function _SeqInStream_ReadMax(stream: PISeqInStream; buf: Pointer; var processedSize: NativeInt): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'SeqInStream_ReadMax'{$IFEND};
+{$ELSE}
+function SeqInStream_ReadMax(stream: PISeqInStream; buf: Pointer; var processedSize: NativeInt): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'SeqInStream_ReadMax'{$IFEND};
+{$ENDIF}
+
 {$IFDEF Win32}
 {$IFDEF UNDERSCORE}
 procedure __lldiv;
@@ -119,6 +133,7 @@ procedure __llumod;
 procedure __llshl;
 procedure __llshr;
 procedure __llushr;
+procedure __aulldiv; // SDK 26.02: clang/MSVC naming variant of the unsigned 64-bit division (Lzma2Enc.obj)
 function _log(const val: double): double; cdecl; { always cdecl }
 {$ELSE}
 procedure _lldiv;
@@ -136,6 +151,13 @@ function log(const val: double): double; cdecl; { always cdecl }
 function HRESULT_FROM_WIN32(x: Integer): HRESULT; cdecl;
 
 implementation
+
+// SDK 26.02: stream helper functions (SeqInStream_ReadMax for MtCoder/MtDec)
+{$ifdef Win32}
+  {$L Win32\7zStream.obj}
+{$else}
+  {$L Win64\7zStream.o}
+{$endif}
 
 function SzAllocProc(Sender: PISzAlloc; size: NativeInt): Pointer; cdecl;
 begin
@@ -211,6 +233,21 @@ procedure __llushr;
 asm
   jmp System.@_llushr
 end;
+
+procedure __aulldiv;
+// MSVC/clang convention: ALL 4 dwords on the stack, callee cleans 16 bytes
+// (ret 16). Borland's System.@_lludiv expects the dividend in EAX:EDX and
+// only the divisor on the stack (ret 8) - a plain jmp-thunk therefore
+// returns garbage AND shifts the stack by 8 bytes (finding LZMA3, measured:
+// jump to a garbage return address). Full translation thunk instead:
+asm
+  mov eax, [esp+4]          // dividend lo
+  mov edx, [esp+8]          // dividend hi
+  push dword ptr [esp+16]   // divisor hi (esp moves with each push!)
+  push dword ptr [esp+16]   // divisor lo
+  call System.@_lludiv
+  ret 16
+end;                        // an eventual __aullrem works the same way via System.@_llumod
 
 function _log(const val: double): double; cdecl; { always cdecl }
 asm

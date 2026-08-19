@@ -66,6 +66,19 @@ function _Lzma2Decode(var dest; var destLen : NativeInt; const src; var srcLen :
 function Lzma2Decode(var dest; var destLen : NativeInt; const src; var srcLen : NativeInt; prop : Byte; finishMode : ELzmaFinishMode; var status : ELzmaStatus; var alloc : TISzAlloc) : Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'Lzma2Decode'{$IFEND};
 {$ENDIF}
 
+// Added with the SDK 26.02 sync: LZMA2 parser (reads the chunk structure without decoding)
+type
+  ELzma2ParseStatus = (
+    LZMA2_PARSE_STATUS_NEW_BLOCK = Ord( LZMA_STATUS_MAYBE_FINISHED_WITHOUT_MARK ) + 1,
+    LZMA2_PARSE_STATUS_NEW_CHUNK
+  );
+
+{$IFDEF UNDERSCORE}
+function _Lzma2Dec_Parse(var P : TCLzma2Dec; outSize : NativeInt; const src : PByte; var srcLen : NativeInt; checkFinishBlock : Integer) : ELzma2ParseStatus; cdecl; external {$IF CompilerVersion > 22}name _PU + 'Lzma2Dec_Parse'{$IFEND};
+{$ELSE}
+function Lzma2Dec_Parse(var P : TCLzma2Dec; outSize : NativeInt; const src : PByte; var srcLen : NativeInt; checkFinishBlock : Integer) : ELzma2ParseStatus; cdecl; external {$IF CompilerVersion > 22}name _PU + 'Lzma2Dec_Parse'{$IFEND};
+{$ENDIF}
+
 implementation
 
 {$ifdef Win32}

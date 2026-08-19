@@ -543,6 +543,7 @@ begin
     CurrentDataLen := InStream.Read( Data[ 0 ], BufferSizeIn_ );
 
     InLen := CurrentDataLen;
+    OutLen := Length( Buffer ); // SDK 26.02 sync (finding LZMA2): destLen is IN/OUT - input = buffer capacity; was uninitialized (stack garbage -> zero result or write past the buffer)
     result := {$IFDEF UNDERSCORE}_LzmaDec_DecodeToBuf{$ELSE}LzmaDec_DecodeToBuf{$ENDIF}( LzmaState, Buffer[ 0 ], OutLen, Data[ 0 ], InLen, LZMA_FINISH_ANY, Status );
     if ( result <> SZ_OK ) then
       break;
