@@ -245,6 +245,17 @@ begin
     Check( 'SaveToStream (memory)', W.SaveToStream( M ) = 0 );
     Got.Clear;
     Check( 'read back from memory', ( R.OpenMemory( M.Memory, M.Size ) = 0 ) and ( R.Extract( 0, Got ) = 0 ) and ( Got.Size = 8 ) );
+    R.Close;
+
+    // archive behind a 100-byte prefix: Open reads from the current position
+    M.Clear;
+    M.Size := 100;
+    FillChar( M.Memory^, 100, $AA );
+    M.Position := 100;
+    Check( 'SaveToStream behind a prefix', W.SaveToStream( M ) = 0 );
+    M.Position := 100;
+    Got.Clear;
+    Check( 'Open at stream position 100 + extract', ( R.Open( M ) = 0 ) and ( R.Extract( 0, Got ) = 0 ) and ( Got.Size = 8 ) );
   finally
     R.Free;
     Got.Free;

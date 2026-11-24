@@ -896,7 +896,8 @@ begin
   FLook.bufSize := Length( FLookBuf );
   FLook.pos := 0;
   FLook.size := 0;
-  Stream.Position := 0;
+  // the archive starts at the current position (7zArcIn.c takes it as start of the archive),
+  // e.g. an archive behind a prefix in a resource or in a bigger file
 
   {$IFDEF UNDERSCORE}_SzArEx_Init{$ELSE}SzArEx_Init{$ENDIF}( FDb );
   GPasswordPtr := PWideChar( FPassword );
