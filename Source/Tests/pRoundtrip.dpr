@@ -36,6 +36,8 @@ var
   Fails: Integer = 0;
   InS, OutS, BackS: TMemoryStream;
   NrmProps: TCLzma2EncProps;
+  P: Pointer;
+  Big: TByteDynArray;
 
 procedure Check(const aName: string; Cond: Boolean);
 begin
@@ -123,6 +125,36 @@ begin
       OutS.Free;
       InS.Free;
     end;
+
+    // --- 4) high compression ratio (2026-11-24): ExtractLZMA/ExtractLZMA2 returned the data silently truncated to
+    // 4 x compressed size (real scan file 14.7 MB at ratio 9.7:1 came back with 6.1 MB). 20 MB pattern, both
+    // overloads, both formats, level parameter; a truncated stream must fail instead of returning partial data.
+    SetLength(Big, 20 * 1024 * 1024);
+    for i := 0 to High(Big) do
+      Big[i] := Byte(i mod 7);
+    n := CompressLZMA(@Big[0], Length(Big), Comp, True{Header}, 1{Level});
+    Check('LZMA level 1, ratio > 4:1', (n > 0) and (n * 4 < Length(Big)));
+    n := ExtractLZMA(@Comp[0], Length(Comp), Back);
+    Check('ExtractLZMA high ratio complete (array)',
+      (n = Length(Big)) and (Length(Back) = Length(Big)) and CompareMem(@Back[0], @Big[0], Length(Big)));
+    P := nil;
+    n := ExtractLZMA(@Comp[0], Length(Comp), P);
+    Check('ExtractLZMA high ratio complete (pointer)', (n = Length(Big)) and CompareMem(P, @Big[0], Length(Big)));
+    FreeMem(P);
+    n := ExtractLZMA(@Comp[0], Length(Comp) - 16, Back);
+    Check('ExtractLZMA truncated stream -> error, no data', Length(Back) = 0);
+    n := CompressLZMA2(@Big[0], Length(Big), Comp, True{Header}, 1{Level});
+    Check('LZMA2 level 1, ratio > 4:1', (n > 0) and (n * 4 < Length(Big)));
+    n := ExtractLZMA2(@Comp[0], Length(Comp), Back);
+    Check('ExtractLZMA2 high ratio complete (array)',
+      (n = Length(Big)) and (Length(Back) = Length(Big)) and CompareMem(@Back[0], @Big[0], Length(Big)));
+    P := nil;
+    n := ExtractLZMA2(@Comp[0], Length(Comp), P);
+    Check('ExtractLZMA2 high ratio complete (pointer)', (n = Length(Big)) and CompareMem(P, @Big[0], Length(Big)));
+    FreeMem(P);
+    n := ExtractLZMA2(@Comp[0], Length(Comp) - 16, Back);
+    Check('ExtractLZMA2 truncated stream -> error, no data', Length(Back) = 0);
+    SetLength(Big, 0);
 
     if Fails = 0 then
       Writeln('ALL OK')

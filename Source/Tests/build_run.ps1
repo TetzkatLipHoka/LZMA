@@ -1,12 +1,12 @@
 # LZMA include test suite (SDK 26.02): struct layout guard + functional roundtrip
-# Builds and runs pSizes + pRoundtrip for Win32 and Win64 (Delphi 13.1);
+# Builds and runs pSizes + pRoundtrip for Win32 and Win64 (Delphi 13.2);
 # with -D7 additionally cross-builds with Delphi 7 (oldest supported compiler).
 # Exit code 0 = all green.
 param(
-  [string]$Dcc32 = 'C:\delphi\13.1\bin\dcc32.exe',
-  [string]$Dcc64 = 'C:\delphi\13.1\bin\dcc64.exe',
-  [string]$Lib32 = 'C:\delphi\13.1\lib\win32\release',
-  [string]$Lib64 = 'C:\delphi\13.1\lib\win64\release',
+  [string]$Dcc32 = 'C:\delphi\13.2\bin\dcc32.exe',
+  [string]$Dcc64 = 'C:\delphi\13.2\bin\dcc64.exe',
+  [string]$Lib32 = 'C:\delphi\13.2\lib\win32\release',
+  [string]$Lib64 = 'C:\delphi\13.2\lib\win64\release',
   [switch]$D7,
   [string]$D7Root = 'C:\delphi\7'
 )

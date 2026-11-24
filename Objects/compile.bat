@@ -1,6 +1,6 @@
 @echo off
 rem ============================================================================
-rem LZMA SDK 26.02 - object build for the Delphi include (sync 2026-08-10)
+rem LZMA SDK 26.06 - object build for the Delphi include (sync 2026-11-24)
 rem
 rem Win32: OMF via bcc32c (portable C++Builder command-line tools 12.2)
 rem        -> links with dcc32 from Delphi 7 upwards (OMF)
@@ -18,7 +18,7 @@ set FILES=Threads.c LzFind.c LzFindMt.c LzFindOpt.c LzmaDec.c LzmaEnc.c Lzma2Enc
 set DEFS=-DNDEBUG -DZ7_LZMA_PROB32
 
 rem --- adjust paths if needed ---
-set BCC=D:\Delphi\___Claude Workspace\uTLH\BorlandComandlineCompiler
+set BCC=D:\Delphi\___Claude Workspace\LibTIFF\BorlandComandlineCompiler
 set VCVARS=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat
 
 echo ######## Win32 (OMF, bcc32c) ########

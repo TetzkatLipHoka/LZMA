@@ -11,8 +11,8 @@ interface
 uses
   types;
 
-function CompressLZMA2( Source : PByte; Len : Cardinal; var Compressed : TByteDynArray; Header : boolean = False ) : Int64; overload;
-function CompressLZMA2( Source : PByte; Len : Cardinal; var Compressed : Pointer; Header : boolean = False ) : Int64; overload;
+function CompressLZMA2( Source : PByte; Len : Cardinal; var Compressed : TByteDynArray; Header : boolean = False; Level : Integer = 9 ) : Int64; overload;
+function CompressLZMA2( Source : PByte; Len : Cardinal; var Compressed : Pointer; Header : boolean = False; Level : Integer = 9 ) : Int64; overload;
 function ExtractLZMA2( Source : PByte; Len : Cardinal; var Decompressed : TByteDynArray ) : Int64; overload;
 function ExtractLZMA2( Source : PByte; Len : Cardinal; var Decompressed : Pointer ) : Int64; overload;
 
@@ -91,7 +91,7 @@ begin
   end;
 end;
 
-function CompressLZMA2( Source : PByte; Len : Cardinal; var Compressed : TByteDynArray; Header : boolean = False ) : Int64;
+function CompressLZMA2( Source : PByte; Len : Cardinal; var Compressed : TByteDynArray; Header : boolean = False; Level : Integer = 9 ) : Int64;
 var
   Encoder : TCLzma2EncHandle;
   Props: TCLzma2EncProps;
@@ -116,7 +116,7 @@ begin
     Exit;
 
   {$IFDEF UNDERSCORE}_Lzma2EncProps_Init{$ELSE}Lzma2EncProps_Init{$ENDIF}( Props );
-  Props.lzmaProps.level := 9;
+  Props.lzmaProps.level := Level;
   Props.lzmaProps.writeEndMark := 1;  
 
   result := {$IFDEF UNDERSCORE}_Lzma2Enc_SetProps{$ELSE}Lzma2Enc_SetProps{$ENDIF}( Encoder, Props );
@@ -165,7 +165,7 @@ begin
   {$IFDEF UNDERSCORE}_Lzma2Enc_Destroy{$ELSE}Lzma2Enc_Destroy{$ENDIF}( Encoder );
 end;
 
-function CompressLZMA2( Source : PByte; Len : Cardinal; var Compressed : Pointer; Header : boolean = False ) : Int64;
+function CompressLZMA2( Source : PByte; Len : Cardinal; var Compressed : Pointer; Header : boolean = False; Level : Integer = 9 ) : Int64;
 var
   bCompressed : PByte;
   Encoder : TCLzma2EncHandle;
@@ -192,7 +192,7 @@ begin
     Exit;
 
   {$IFDEF UNDERSCORE}_Lzma2EncProps_Init{$ELSE}Lzma2EncProps_Init{$ENDIF}( Props );
-  Props.lzmaProps.level := 9;
+  Props.lzmaProps.level := Level;
   Props.lzmaProps.writeEndMark := 1;  
 
   result := {$IFDEF UNDERSCORE}_Lzma2Enc_SetProps{$ELSE}Lzma2Enc_SetProps{$ENDIF}( Encoder, Props );
@@ -275,32 +275,35 @@ begin
   {$IFDEF UNDERSCORE}_Lzma2Dec_Init{$ELSE}Lzma2Dec_Init{$ENDIF}( Lzma2State );
 
   OutSize := Len*4;
+  if ( OutSize < 4096 ) then
+    OutSize := 4096;
   SetLength( Decompressed, OutSize );
 
-  // Read
+  // 2026-11-24: keep decoding while the decoder reports LZMA_STATUS_NOT_FINISHED (output buffer full) and grow
+  // the buffer by doubling. Before, the loop only continued on NEEDS_MORE_INPUT and returned the data silently
+  // truncated to 4 x compressed size (e.g. 6.1 of 14.7 MB at ratio 9.7:1). A stream without end mark is SZ_ERROR_DATA.
   DataSize := Len;
-  OutLen   := OutSize;
   DecompressSize := 0;
-  Status := LZMA_STATUS_NEEDS_MORE_INPUT;
-  while ( DataSize > 0 ) AND ( Status = LZMA_STATUS_NEEDS_MORE_INPUT ) do
-    begin
-    if ( DecompressSize > 0 ) then
+  Status := LZMA_STATUS_NOT_SPECIFIED;
+  repeat
+    if ( DecompressSize = OutSize ) then
       begin
-      OutSize := OutSize+Len;
+      OutSize := OutSize*2;
       SetLength( Decompressed, OutSize );
-      OutLen := OutSize-DecompressSize;
       end;
-
-    InLen := DataSize;
-
+    InLen  := DataSize;
+    OutLen := OutSize-DecompressSize;
     result := {$IFDEF UNDERSCORE}_Lzma2Dec_DecodeToBuf{$ELSE}Lzma2Dec_DecodeToBuf{$ENDIF}( Lzma2State, Decompressed[ DecompressSize ], OutLen, Source^, InLen, LZMA_FINISH_ANY, Status );
     if ( result <> SZ_OK ) then
       Break;
     Dec( DataSize, InLen );
     Inc( Source, InLen );
-
     Inc( DecompressSize, OutLen );
-    end;
+    if ( InLen = 0 ) AND ( OutLen = 0 ) then
+      Break; // no progress
+  until ( Status = LZMA_STATUS_FINISHED_WITH_MARK ) OR ( ( Status = LZMA_STATUS_NEEDS_MORE_INPUT ) AND ( DataSize = 0 ) );
+  if ( result = SZ_OK ) AND ( Status <> LZMA_STATUS_FINISHED_WITH_MARK ) then
+    result := SZ_ERROR_DATA; // stream ended without end mark: incomplete
   if ( result = SZ_OK ) then
     begin
     result := DecompressSize;
@@ -344,33 +347,37 @@ begin
   {$IFDEF UNDERSCORE}_Lzma2Dec_Init{$ELSE}Lzma2Dec_Init{$ENDIF}( Lzma2State );
 
   OutSize := Len*4;
+  if ( OutSize < 4096 ) then
+    OutSize := 4096;
   GetMem( Decompressed, OutSize );
 
-  // Read
+  // 2026-11-24: keep decoding while the decoder reports LZMA_STATUS_NOT_FINISHED (output buffer full) and grow
+  // the buffer by doubling. Before, the loop only continued on NEEDS_MORE_INPUT and returned the data silently
+  // truncated to 4 x compressed size (e.g. 6.1 of 14.7 MB at ratio 9.7:1). A stream without end mark is SZ_ERROR_DATA.
   DataSize := Len;
-  OutLen   := OutSize;
   DecompressSize := 0;
-  Status := LZMA_STATUS_NEEDS_MORE_INPUT;
-  while ( DataSize > 0 ) AND ( Status = LZMA_STATUS_NEEDS_MORE_INPUT ) do
-    begin
-    if ( DecompressSize > 0 ) then
+  Status := LZMA_STATUS_NOT_SPECIFIED;
+  repeat
+    if ( DecompressSize = OutSize ) then
       begin
-      OutSize := OutSize+Len;
+      OutSize := OutSize*2;
       ReallocMem( Decompressed, OutSize );
-      OutLen := OutSize-DecompressSize;
       end;
-
-    InLen := DataSize;
+    InLen  := DataSize;
+    OutLen := OutSize-DecompressSize;
     {$R-}
-    result := {$IFDEF UNDERSCORE}_Lzma2Dec_DecodeToBuf{$ELSE}Lzma2Dec_DecodeToBuf{$ENDIF}( Lzma2State, PByte( NativeUInt( Decompressed )+DecompressSize )^{bDecompressed^[ DecompressSize ]}, OutLen, Source^, InLen, LZMA_FINISH_ANY, Status );
+    result := {$IFDEF UNDERSCORE}_Lzma2Dec_DecodeToBuf{$ELSE}Lzma2Dec_DecodeToBuf{$ENDIF}( Lzma2State, PByte( NativeUInt( Decompressed )+DecompressSize )^, OutLen, Source^, InLen, LZMA_FINISH_ANY, Status );
     {$R+}
     if ( result <> SZ_OK ) then
       Break;
     Dec( DataSize, InLen );
     Inc( Source, InLen );
-
     Inc( DecompressSize, OutLen );
-    end;
+    if ( InLen = 0 ) AND ( OutLen = 0 ) then
+      Break; // no progress
+  until ( Status = LZMA_STATUS_FINISHED_WITH_MARK ) OR ( ( Status = LZMA_STATUS_NEEDS_MORE_INPUT ) AND ( DataSize = 0 ) );
+  if ( result = SZ_OK ) AND ( Status <> LZMA_STATUS_FINISHED_WITH_MARK ) then
+    result := SZ_ERROR_DATA; // stream ended without end mark: incomplete
   if ( result = SZ_OK ) then
     begin
     result := DecompressSize;
