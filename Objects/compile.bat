@@ -14,7 +14,7 @@ rem           -DNDEBUG removes the assert paths
 rem After EVERY rebuild: run Source\Tests\build_run.ps1 (layout guard+roundtrip)!
 rem ============================================================================
 
-set FILES=Threads.c LzFind.c LzFindMt.c LzFindOpt.c LzmaDec.c LzmaEnc.c Lzma2Enc.c Lzma2Dec.c MtCoder.c MtDec.c CpuArch.c 7zStream.c
+set FILES=Threads.c LzFind.c LzFindMt.c LzFindOpt.c LzmaDec.c LzmaEnc.c Lzma2Enc.c Lzma2Dec.c MtCoder.c MtDec.c CpuArch.c 7zStream.c Bra.c Bra86.c Bcj2.c Bcj2Enc.c 7zArcIn.c 7zCrc.c 7zCrcOpt.c 7zBuf.c Delta.c
 set DEFS=-DNDEBUG -DZ7_LZMA_PROB32
 
 rem --- adjust paths if needed ---

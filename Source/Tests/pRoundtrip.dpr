@@ -156,6 +156,93 @@ begin
     Check('ExtractLZMA2 truncated stream -> error, no data', Length(Back) = 0);
     SetLength(Big, 0);
 
+    // --- 4b) stream API, same cases (2026-11-24): the stream decoders stopped at the end of the input even while
+    // the decoder still had output pending, and reported truncated or corrupt streams as success (partial size).
+    SetLength(Big, 20 * 1024 * 1024);
+    for i := 0 to High(Big) do
+      Big[i] := Byte(i mod 7);
+    InS := TMemoryStream.Create;
+    OutS := TMemoryStream.Create;
+    BackS := TMemoryStream.Create;
+    try
+      InS.WriteBuffer(Big[0], Length(Big));
+      InS.Position := 0;
+      CompressStreamLZMA(InS, OutS, True);
+      OutS.Position := 0;
+      n := ExtractStreamLZMA(OutS, BackS);
+      Check('ExtractStreamLZMA high ratio complete',
+        (n = Length(Big)) and (BackS.Size = Length(Big)) and CompareMem(BackS.Memory, @Big[0], Length(Big)));
+      OutS.Size := OutS.Size - 16;
+      OutS.Position := 0;
+      BackS.Clear;
+      n := ExtractStreamLZMA(OutS, BackS);
+      Check('ExtractStreamLZMA truncated stream -> error', n < 0);
+      InS.Position := 0;
+      OutS.Clear;
+      CompressStreamLZMA2(InS, OutS, True);
+      OutS.Position := 0;
+      BackS.Clear;
+      n := ExtractStreamLZMA2(OutS, BackS);
+      Check('ExtractStreamLZMA2 high ratio complete',
+        (n = Length(Big)) and (BackS.Size = Length(Big)) and CompareMem(BackS.Memory, @Big[0], Length(Big)));
+      OutS.Size := OutS.Size - 16;
+      OutS.Position := 0;
+      BackS.Clear;
+      n := ExtractStreamLZMA2(OutS, BackS);
+      Check('ExtractStreamLZMA2 truncated stream -> error', n < 0);
+      // in place (InStream = OutStream): on error the input must stay untouched
+      OutS.Position := 0;
+      i := OutS.Size;
+      n := ExtractStreamLZMA2(TStream(OutS), TStream(OutS));
+      Check('ExtractStreamLZMA2 in place, error -> input unchanged', (n < 0) and (OutS.Size = i));
+    finally
+      BackS.Free;
+      OutS.Free;
+      InS.Free;
+    end;
+    SetLength(Big, 0);
+
+    // --- 4c) buffer API: errors are negative (2026-11-24; before: positive SZ_ERROR_* like a 1..17 byte result)
+    SetLength(Comp, 64);
+    FillChar(Comp[0], 64, $FF);
+    PWord(@Comp[0])^ := 5; // LZMA props length ok, props invalid ($FF)
+    n := ExtractLZMA(@Comp[0], Length(Comp), Back);
+    Check('ExtractLZMA invalid props -> negative', (n < 0) and (Length(Back) = 0));
+    Comp[0] := $FF; // LZMA2 property byte > 40 is invalid
+    n := ExtractLZMA2(@Comp[0], Length(Comp), Back);
+    Check('ExtractLZMA2 invalid prop byte -> negative', (n < 0) and (Length(Back) = 0));
+    n := CompressLZMA(@Data[0], Length(Data), Comp, True, 9);
+    Comp[High(Comp) div 2] := Comp[High(Comp) div 2] xor $55;
+    n := ExtractLZMA(@Comp[0], Length(Comp), Back);
+    Check('ExtractLZMA corrupt data -> negative or detected', (n < 0) or not ((n = Length(Data)) and CompareMem(@Back[0], @Data[0], Length(Data))));
+
+    // --- 5) incompressible data (2026-11-24): CompressLZMA2 used an output buffer of exactly the input size and
+    // failed on random data; the pointer overload additionally allocated Offset bytes too little.
+    SetLength(Big, 300000);
+    RandSeed := 7;
+    for i := 0 to High(Big) do
+      Big[i] := Byte(Random(256));
+    n := CompressLZMA2(@Big[0], Length(Big), Comp, True{Header}, 5);
+    Check('CompressLZMA2 random data (array) succeeds', (n > Length(Big)) and (n = Length(Comp)));
+    n := ExtractLZMA2(@Comp[0], Length(Comp), Back);
+    Check('LZMA2 random data roundtrip (array)', (n = Length(Big)) and CompareMem(@Back[0], @Big[0], Length(Big)));
+    P := nil;
+    n := CompressLZMA2(@Big[0], Length(Big), P, True{Header}, 5);
+    Check('CompressLZMA2 random data (pointer) succeeds', n > Length(Big));
+    if n > 0 then
+    begin
+      SetLength(Comp, n);
+      Move(P^, Comp[0], n);
+    end;
+    FreeMem(P);
+    n := ExtractLZMA2(@Comp[0], Length(Comp), Back);
+    Check('LZMA2 random data roundtrip (pointer)', (n = Length(Big)) and CompareMem(@Back[0], @Big[0], Length(Big)));
+    n := CompressLZMA(@Big[0], Length(Big), Comp, True{Header}, 5);
+    Check('CompressLZMA random data succeeds', (n > Length(Big)) and (n = Length(Comp)));
+    n := ExtractLZMA(@Comp[0], Length(Comp), Back);
+    Check('LZMA random data roundtrip', (n = Length(Big)) and CompareMem(@Back[0], @Big[0], Length(Big)));
+    SetLength(Big, 0);
+
     if Fails = 0 then
       Writeln('ALL OK')
     else

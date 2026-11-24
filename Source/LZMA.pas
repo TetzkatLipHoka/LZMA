@@ -59,17 +59,26 @@ begin
   {$IFDEF UNDERSCORE}_LzmaEncProps_Init{$ELSE}LzmaEncProps_Init{$ENDIF}( Props );
   Props.level := Level;
   Props.writeEndMark := 1;
+  PInt64( @Props.reduceSize )^ := Len; // dictionary not larger than the data (level 9 = 64 MB dictionary, ~700 MB RAM otherwise)
 
   result := {$IFDEF UNDERSCORE}_LzmaEnc_SetProps{$ELSE}LzmaEnc_SetProps{$ENDIF}( Encoder, Props );
   if ( result <> SZ_OK ) then
+    begin
+    {$IFDEF UNDERSCORE}_LzmaEnc_Destroy{$ELSE}LzmaEnc_Destroy{$ENDIF}( Encoder, TISzAllocDefault, TISzAllocDefault );
+    result := -Abs( result );
     Exit;
+    end;
 
   PropDataLen := LZMA_PROPS_SIZE;
   result := {$IFDEF UNDERSCORE}_LzmaEnc_WriteProperties{$ELSE}LzmaEnc_WriteProperties{$ENDIF}( Encoder, @PropData[ 0 ], PropDataLen );
   if ( result <> SZ_OK ) then
+    begin
+    {$IFDEF UNDERSCORE}_LzmaEnc_Destroy{$ELSE}LzmaEnc_Destroy{$ENDIF}( Encoder, TISzAllocDefault, TISzAllocDefault );
+    result := -Abs( result );
     Exit;
+    end;
 
-  OutSize := Len;
+  OutSize := Int64( Len )+Len div 3+128; // room for incompressible data
   Offset := 2+LZMA_PROPS_SIZE;
   if Header then
     Offset := Offset+4;
@@ -97,7 +106,10 @@ begin
       SetLength( Compressed, Result );
     end
   else
+    begin
     SetLength( Compressed, 0 );
+    result := -Abs( result ); // SZ_ERROR_* as negative value
+    end;
 
   {$IFDEF UNDERSCORE}_LzmaEnc_Destroy{$ELSE}LzmaEnc_Destroy{$ENDIF}( Encoder, TISzAllocDefault, TISzAllocDefault );
 end;
@@ -127,17 +139,26 @@ begin
   {$IFDEF UNDERSCORE}_LzmaEncProps_Init{$ELSE}LzmaEncProps_Init{$ENDIF}( Props );
   Props.level := Level;
   Props.writeEndMark := 1;  
+  PInt64( @Props.reduceSize )^ := Len; // dictionary not larger than the data (level 9 = 64 MB dictionary, ~700 MB RAM otherwise)
 
   result := {$IFDEF UNDERSCORE}_LzmaEnc_SetProps{$ELSE}LzmaEnc_SetProps{$ENDIF}( Encoder, Props );
   if ( result <> SZ_OK ) then
+    begin
+    {$IFDEF UNDERSCORE}_LzmaEnc_Destroy{$ELSE}LzmaEnc_Destroy{$ENDIF}( Encoder, TISzAllocDefault, TISzAllocDefault );
+    result := -Abs( result );
     Exit;
+    end;
 
   PropDataLen := LZMA_PROPS_SIZE;
   result := {$IFDEF UNDERSCORE}_LzmaEnc_WriteProperties{$ELSE}LzmaEnc_WriteProperties{$ENDIF}( Encoder, @PropData[ 0 ], PropDataLen );
   if ( result <> SZ_OK ) then
+    begin
+    {$IFDEF UNDERSCORE}_LzmaEnc_Destroy{$ELSE}LzmaEnc_Destroy{$ENDIF}( Encoder, TISzAllocDefault, TISzAllocDefault );
+    result := -Abs( result );
     Exit;
+    end;
 
-  OutSize := Len;
+  OutSize := Int64( Len )+Len div 3+128; // room for incompressible data
   Offset := 2+LZMA_PROPS_SIZE;
   if Header then
     Offset := Offset+4;
@@ -166,7 +187,10 @@ begin
       ReallocMem( Compressed, Result );
     end
   else
+    begin
     ReallocMem( Compressed, 0 );
+    result := -Abs( result ); // SZ_ERROR_* as negative value
+    end;
 
   {$IFDEF UNDERSCORE}_LzmaEnc_Destroy{$ELSE}LzmaEnc_Destroy{$ENDIF}( Encoder, TISzAllocDefault, TISzAllocDefault );
 end;
@@ -202,7 +226,10 @@ begin
   FillChar( LzmaState, SizeOf( LzmaState ), 0 );
   result := {$IFDEF UNDERSCORE}_LzmaDec_Allocate{$ELSE}LzmaDec_Allocate{$ENDIF}( LzmaState, Source^{Props}, LZMA_PROPS_SIZE, TISzAllocDefault );
   if ( result <> SZ_OK ) then
+    begin
+    result := -Abs( result );
     Exit;
+    end;
   Inc( Source, LZMA_PROPS_SIZE );
   Dec( Len, LZMA_PROPS_SIZE );
   {$IFDEF UNDERSCORE}_LzmaDec_Init{$ELSE}LzmaDec_Init{$ENDIF}( LzmaState );
@@ -244,7 +271,10 @@ begin
       SetLength( Decompressed, DecompressSize );
     end
   else
+    begin
     SetLength( Decompressed, 0 );
+    result := -Abs( result ); // SZ_ERROR_* as negative value
+    end;
 
   {$IFDEF UNDERSCORE}_LzmaDec_Free{$ELSE}LzmaDec_Free{$ENDIF}( LzmaState, TISzAllocDefault );
 end;
@@ -280,7 +310,10 @@ begin
   FillChar( LzmaState, SizeOf( LzmaState ), 0 );
   result := {$IFDEF UNDERSCORE}_LzmaDec_Allocate{$ELSE}LzmaDec_Allocate{$ENDIF}( LzmaState, Source^{Props}, LZMA_PROPS_SIZE, TISzAllocDefault );
   if ( result <> SZ_OK ) then
+    begin
+    result := -Abs( result );
     Exit;
+    end;
   Inc( Source, LZMA_PROPS_SIZE );
   Dec( Len, LZMA_PROPS_SIZE );
   {$IFDEF UNDERSCORE}_LzmaDec_Init{$ELSE}LzmaDec_Init{$ENDIF}( LzmaState );
@@ -324,7 +357,10 @@ begin
       ReallocMem( Decompressed, DecompressSize );
     end
   else
+    begin
     ReallocMem( Decompressed, 0 );
+    result := -Abs( result ); // SZ_ERROR_* as negative value
+    end;
 
   {$IFDEF UNDERSCORE}_LzmaDec_Free{$ELSE}LzmaDec_Free{$ENDIF}( LzmaState, TISzAllocDefault );
 end;

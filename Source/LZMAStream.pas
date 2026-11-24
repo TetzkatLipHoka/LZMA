@@ -509,7 +509,11 @@ begin
     ToSource := False;
 
   if ( InStream.Read( Head[ 0 ], HEADER_LEN_ ) <> HEADER_LEN_ ) then
+    begin
+    if ToSource then
+      OutStream.free;
     Exit;
+    end;
   if ( Head <> HEADER_ ) then
     InStream.Position := InStream.Position-HEADER_LEN_;
 
@@ -524,6 +528,7 @@ begin
     begin
     if ToSource then
       OutStream.free;
+    result := -Abs( result );
     Exit;
     end;
   {$IFDEF UNDERSCORE}_LzmaDec_Init{$ELSE}LzmaDec_Init{$ENDIF}( LzmaState );
@@ -538,7 +543,8 @@ begin
     begin
     if ( CurrentDataLen > 0 ) then
       InStream.Position := InStream.Position-CurrentDataLen;
-    if ( InStream.Position = InStream.Size ) then
+    // at the end of the input the decoder may still hold output (NOT_FINISHED = output buffer was full)
+    if ( InStream.Position = InStream.Size ) and ( Status <> LZMA_STATUS_NOT_FINISHED ) then
       break;
     CurrentDataLen := InStream.Read( Data[ 0 ], BufferSizeIn_ );
 
@@ -551,25 +557,31 @@ begin
     Dec( CurrentDataLen, InLen );
 //    Inc( DecompressSize, OutLen );
 
-    if ( OutLen > 0 ) then
+    if ( OutLen > 0 ) and ( OutStream.Write( Buffer[ 0 ], OutLen ) <> OutLen ) then
       begin
-      result := OutStream.Write( Buffer[ 0 ], OutLen );
-      if ( result <= 0 ) then
-        Break;
-      end
-    else
-      break;
+      result := SZ_ERROR_WRITE;
+      Break;
+      end;
+    if ( InLen = 0 ) and ( OutLen = 0 ) then
+      Break; // no progress
     end;
+  // 2026-11-24: a stream without end mark (truncated/corrupt) is an error, not a partial result
+  if ( result = SZ_OK ) and ( Status <> LZMA_STATUS_FINISHED_WITH_MARK ) then
+    result := SZ_ERROR_DATA;
   SetLength( Buffer, 0 );
 
-  if ( result >= 0 ) then
-    result := OutStream.Size;
+  if ( result = SZ_OK ) then
+    result := OutStream.Size
+  else
+    result := -Abs( result ); // SZ_ERROR_* as negative value
 
   {$IFDEF UNDERSCORE}_LzmaDec_Free{$ELSE}LzmaDec_Free{$ENDIF}( LzmaState, TISzAllocDefault );
   FillChar( LzmaState, SizeOf( LzmaState ), 0 );
   SetLength( Data, 0 );
 
-  if ToSource then
+  if ToSource and ( result < 0 ) then
+    OutStream.free // error: leave the input untouched
+  else if ToSource then
     begin
     InStream.Position  := 0;
     InStream.Size      := 0;

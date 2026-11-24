@@ -116,6 +116,20 @@ procedure fxit(const Status: Integer); cdecl; external 'msvcrt.dll' name {_PU + 
 procedure _exit(const Status: Integer); cdecl; external 'msvcrt.dll' name {_PU + }'_exit';
 {$ENDIF}
 
+// 7z reader (SevenZipIn.pas, 7zArcIn.c): look-ahead stream helpers of 7zStream.c.
+// Declared here because 7zStream.obj is linked by this unit.
+{$IFDEF UNDERSCORE}
+procedure _LookToRead2_CreateVTable(var p; lookahead: Integer); cdecl; external {$IF CompilerVersion > 22}name _PU + 'LookToRead2_CreateVTable'{$IFEND};
+function _LookInStream_SeekTo(stream: Pointer; offset: Int64): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LookInStream_SeekTo'{$IFEND};
+function _LookInStream_Read(stream: Pointer; buf: Pointer; size: NativeUInt): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LookInStream_Read'{$IFEND};
+function _LookInStream_Read2(stream: Pointer; buf: Pointer; size: NativeUInt; errorType: Integer): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LookInStream_Read2'{$IFEND};
+{$ELSE}
+procedure LookToRead2_CreateVTable(var p; lookahead: Integer); cdecl; external {$IF CompilerVersion > 22}name _PU + 'LookToRead2_CreateVTable'{$IFEND};
+function LookInStream_SeekTo(stream: Pointer; offset: Int64): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LookInStream_SeekTo'{$IFEND};
+function LookInStream_Read(stream: Pointer; buf: Pointer; size: NativeUInt): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LookInStream_Read'{$IFEND};
+function LookInStream_Read2(stream: Pointer; buf: Pointer; size: NativeUInt; errorType: Integer): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'LookInStream_Read2'{$IFEND};
+{$ENDIF}
+
 // SDK 26.02: MtCoder.c/MtDec.c read their input via SeqInStream_ReadMax (7zStream.c)
 {$IFDEF UNDERSCORE}
 function _SeqInStream_ReadMax(stream: PISeqInStream; buf: Pointer; var processedSize: NativeInt): Integer; cdecl; external {$IF CompilerVersion > 22}name _PU + 'SeqInStream_ReadMax'{$IFEND};

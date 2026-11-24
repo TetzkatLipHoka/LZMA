@@ -118,14 +118,19 @@ begin
   {$IFDEF UNDERSCORE}_Lzma2EncProps_Init{$ELSE}Lzma2EncProps_Init{$ENDIF}( Props );
   Props.lzmaProps.level := Level;
   Props.lzmaProps.writeEndMark := 1;  
+  PInt64( @Props.lzmaProps.reduceSize )^ := Len; // dictionary not larger than the data (level 9 = 64 MB dictionary, ~700 MB RAM otherwise)
 
   result := {$IFDEF UNDERSCORE}_Lzma2Enc_SetProps{$ELSE}Lzma2Enc_SetProps{$ENDIF}( Encoder, Props );
   if ( result <> SZ_OK ) then
+    begin
+    {$IFDEF UNDERSCORE}_Lzma2Enc_Destroy{$ELSE}Lzma2Enc_Destroy{$ENDIF}( Encoder );
+    result := -Abs( result );
     Exit;
+    end;
 
   bProp := {$IFDEF UNDERSCORE}_Lzma2Enc_WriteProperties{$ELSE}Lzma2Enc_WriteProperties{$ENDIF}( Encoder );
 
-  OutSize := Len;
+  OutSize := Int64( Len )+Len div 128+64; // room for incompressible data (stored chunks: 3 bytes per 64 KB)
   Offset := SizeOf( bProp );
   if Header then
     Offset := Offset+4;
@@ -160,7 +165,10 @@ begin
       SetLength( Compressed, Result );
     end
   else
+    begin
     SetLength( Compressed, 0 );
+    result := -Abs( result ); // SZ_ERROR_* as negative value
+    end;
 
   {$IFDEF UNDERSCORE}_Lzma2Enc_Destroy{$ELSE}Lzma2Enc_Destroy{$ENDIF}( Encoder );
 end;
@@ -194,19 +202,24 @@ begin
   {$IFDEF UNDERSCORE}_Lzma2EncProps_Init{$ELSE}Lzma2EncProps_Init{$ENDIF}( Props );
   Props.lzmaProps.level := Level;
   Props.lzmaProps.writeEndMark := 1;  
+  PInt64( @Props.lzmaProps.reduceSize )^ := Len; // dictionary not larger than the data (level 9 = 64 MB dictionary, ~700 MB RAM otherwise)
 
   result := {$IFDEF UNDERSCORE}_Lzma2Enc_SetProps{$ELSE}Lzma2Enc_SetProps{$ENDIF}( Encoder, Props );
   if ( result <> SZ_OK ) then
+    begin
+    {$IFDEF UNDERSCORE}_Lzma2Enc_Destroy{$ELSE}Lzma2Enc_Destroy{$ENDIF}( Encoder );
+    result := -Abs( result );
     Exit;
+    end;
 
   bProp := {$IFDEF UNDERSCORE}_Lzma2Enc_WriteProperties{$ELSE}Lzma2Enc_WriteProperties{$ENDIF}( Encoder );
 
-  OutSize := Len;
+  OutSize := Int64( Len )+Len div 128+64; // room for incompressible data (stored chunks: 3 bytes per 64 KB)
   Offset := SizeOf( bProp );
   if Header then
     Offset := Offset+4;
   OutLen := OutSize-Offset;
-  ReallocMem( Compressed, OutLen );
+  ReallocMem( Compressed, OutSize ); // header + payload; OutLen alone was Offset bytes short
 
   bCompressed := Compressed;
 
@@ -239,7 +252,10 @@ begin
       ReallocMem( Compressed, Result );
     end
   else
+    begin
     ReallocMem( Compressed, 0 );
+    result := -Abs( result ); // SZ_ERROR_* as negative value
+    end;
 
   {$IFDEF UNDERSCORE}_Lzma2Enc_Destroy{$ELSE}Lzma2Enc_Destroy{$ENDIF}( Encoder );
 end;
@@ -269,7 +285,10 @@ begin
   FillChar( Lzma2State, SizeOf( Lzma2State ), 0 );
   result := {$IFDEF UNDERSCORE}_Lzma2Dec_Allocate{$ELSE}Lzma2Dec_Allocate{$ENDIF}( Lzma2State, Source^{Props}, TISzAllocDefault );
   if ( result <> SZ_OK ) then
+    begin
+    result := -Abs( result );
     Exit;
+    end;
   Inc( Source, 1{LZMA_PROPS_SIZE} );
   Dec( Len, 1{LZMA_PROPS_SIZE} );
   {$IFDEF UNDERSCORE}_Lzma2Dec_Init{$ELSE}Lzma2Dec_Init{$ENDIF}( Lzma2State );
@@ -311,7 +330,10 @@ begin
       SetLength( Decompressed, DecompressSize );
     end
   else
+    begin
     SetLength( Decompressed, 0 );
+    result := -Abs( result ); // SZ_ERROR_* as negative value
+    end;
 
   {$IFDEF UNDERSCORE}_LzmaDec_Free{$ELSE}LzmaDec_Free{$ENDIF}( Lzma2State.Decoder, TISzAllocDefault );
 end;
@@ -341,7 +363,10 @@ begin
   FillChar( Lzma2State, SizeOf( Lzma2State ), 0 );
   result := {$IFDEF UNDERSCORE}_Lzma2Dec_Allocate{$ELSE}Lzma2Dec_Allocate{$ENDIF}( Lzma2State, Source^{Props}, TISzAllocDefault );
   if ( result <> SZ_OK ) then
+    begin
+    result := -Abs( result );
     Exit;
+    end;
   Inc( Source, 1{LZMA_PROPS_SIZE} );
   Dec( Len, 1{LZMA_PROPS_SIZE} );
   {$IFDEF UNDERSCORE}_Lzma2Dec_Init{$ELSE}Lzma2Dec_Init{$ENDIF}( Lzma2State );
@@ -385,7 +410,10 @@ begin
       ReallocMem( Decompressed, DecompressSize );
     end
   else
+    begin
     ReallocMem( Decompressed, 0 );
+    result := -Abs( result ); // SZ_ERROR_* as negative value
+    end;
 
   {$IFDEF UNDERSCORE}_LzmaDec_Free{$ELSE}LzmaDec_Free{$ENDIF}( Lzma2State.Decoder, TISzAllocDefault );
 end;
