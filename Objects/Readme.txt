@@ -1,4 +1,4 @@
-SDK 26.02 (sync 2026-08-10):
+SDK 26.06 (sync 2026-11-24; before: 26.02, sync 2026-08-10):
 
 The old hex-editor patch (LzFindMt.o x64: 'exit' -> 'fxit') is OBSOLETE -
 the exit reference is gone from the sources since SDK 26.02.
