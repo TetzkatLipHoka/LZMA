@@ -50,8 +50,8 @@ if ($D7) {
     if (-not (Test-Path "$t.dpr")) { continue }
     Write-Host "=== $t (Delphi 7) ===" -ForegroundColor Cyan
     Remove-Item "outD7\$t.exe" -ErrorAction SilentlyContinue
-    $u = "$D7Root\lib"; $extra = ''
-    if ($tests[$t]) { $u = "$EhD7\AES;$EhD7\CRC, Hash;$D7Root\lib"; $extra = ' -$R+ -$Q+' }
+    $u = "$D7Root\lib"; $extra = ' -$R+ -$Q+' # always: D7 with range checks catches C1118 (NativeUInt)
+    if ($tests[$t]) { $u = "$EhD7\AES;$EhD7\CRC, Hash;$D7Root\lib" }
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = "$D7Root\bin\dcc32.exe"
     $psi.Arguments = "-B -U`"$u`" -N0`"$PSScriptRoot\dcuD7`" -E`"$PSScriptRoot\outD7`"$extra `"$PSScriptRoot\$t.dpr`""

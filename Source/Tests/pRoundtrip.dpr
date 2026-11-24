@@ -61,7 +61,7 @@ begin
     {$IFDEF UNDERSCORE}_Lzma2EncProps_Init{$ELSE}Lzma2EncProps_Init{$ENDIF}( NrmProps );
     NrmProps.blockSize := 1 shl 20;                       // 1 MB, fixed
     NrmProps.numBlockThreads := 16;                       // t2 > numBlocks
-    NrmProps.lzmaProps.reduceSize := Int64(11) * (1 shl 20); // 11 blocks exactly
+    PInt64(@NrmProps.lzmaProps.reduceSize)^ := Int64(11) * (1 shl 20); // 11 blocks exactly (D7: UInt64 := with $R+ -> C1118)
     {$IFDEF UNDERSCORE}_Lzma2EncProps_Normalize{$ELSE}Lzma2EncProps_Normalize{$ENDIF}( NrmProps );
     Check('Normalize UInt64 division (__aulldiv) = 11 blocks',
       NrmProps.numBlockThreads_Reduced = 11);
